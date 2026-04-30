@@ -31,16 +31,16 @@ num_cards = st.sidebar.slider("Number of boards to generate",
 uploaded_file = st.file_uploader("Upload Excel file with song titles", 
                                  type=["xlsx", "xls"])
 
-# Improved styles
+# ====================== STYLES ======================
 styles = getSampleStyleSheet()
 
 song_style = ParagraphStyle(
     'SongStyle',
     parent=styles['Normal'],
     fontName='Helvetica',
-    fontSize=9.5,
+    fontSize=9.5,           # Song titles
     leading=11,
-    alignment=1,        # Center
+    alignment=1,            # Center
     wordWrap='CJK',
 )
 
@@ -48,11 +48,10 @@ free_style = ParagraphStyle(
     'FreeStyle',
     parent=styles['Normal'],
     fontName='Helvetica-Bold',
-    fontSize=13,
-    leading=15,
-    alignment=1,        # Center
+    fontSize=10.5,          # Smaller font size for FREE
+    leading=12,
+    alignment=1,            # Center
     textColor=colors.darkblue,
-    backColor=colors.lightgrey
 )
 
 def generate_bingo_card(songs: list) -> list:
@@ -67,8 +66,8 @@ def generate_bingo_card(songs: list) -> list:
         row = []
         for j in range(5):
             if i == 2 and j == 2:
-                # Clean and bold FREE space (no problematic emojis)
-                row.append(Paragraph("<b>FREE</b><br/>SPACE", free_style))
+                # Clean FREE text with smaller font
+                row.append(Paragraph("<b>FREE</b>", free_style))
             else:
                 row.append(Paragraph(items[idx], song_style))
                 idx += 1
@@ -83,7 +82,7 @@ def generate_bingo_pdf(songs: list, num_cards: int, bingo_title: str) -> bytes:
     width, height = A4
 
     card_width = (width - 40 * mm) / 2
-    card_height = (height - 65 * mm) / 2
+    card_height = (height - 60 * mm) / 2
     margin_x = 20 * mm
     margin_y = 25 * mm
 
@@ -112,7 +111,7 @@ def generate_bingo_pdf(songs: list, num_cards: int, bingo_title: str) -> bytes:
                 # Table
                 t = Table(card_data, 
                          colWidths=[card_width/5.05]*5, 
-                         rowHeights=[card_height/5.75]*5)
+                         rowHeights=[card_height/5.8]*5)   # Slightly adjusted height
 
                 style = TableStyle([
                     ('GRID', (0, 0), (-1, -1), 1.5, colors.black),
@@ -124,7 +123,7 @@ def generate_bingo_pdf(songs: list, num_cards: int, bingo_title: str) -> bytes:
                 t.setStyle(style)
 
                 t.wrapOn(c, card_width, card_height)
-                t.drawOn(c, x, y + 4*mm)
+                t.drawOn(c, x, y + 5*mm)
 
                 cards_generated += 1
 
