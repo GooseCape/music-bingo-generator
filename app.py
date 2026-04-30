@@ -10,7 +10,7 @@ from reportlab.lib import colors
 from reportlab.platypus import Table, TableStyle, Paragraph
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 
-st.set_page_config(page_title="Music Bingo Generator", layout="centered")
+st.set_page_config(page_title="Music Bingo Card Generator", layout="centered")
 
 st.title("🎵 Music Bingo Card Generator")
 
@@ -28,35 +28,35 @@ num_cards = st.sidebar.slider("Number of boards to generate",
                               min_value=50, max_value=100, 
                               value=75, step=5)
 
-# ====================== FILE UPLOAD ======================
 uploaded_file = st.file_uploader("Upload Excel file with song titles", 
                                  type=["xlsx", "xls"])
 
-# Create paragraph style for song titles (centered, auto-wrap)
+# Improved styles
 styles = getSampleStyleSheet()
+
 song_style = ParagraphStyle(
     'SongStyle',
     parent=styles['Normal'],
     fontName='Helvetica',
     fontSize=9.5,
     leading=11,
-    alignment=1,          # 1 = Center
-    wordWrap='CJK',       # Better wrapping behavior
-    splitLongWords=True
+    alignment=1,        # Center
+    wordWrap='CJK',
 )
 
 free_style = ParagraphStyle(
     'FreeStyle',
     parent=styles['Normal'],
     fontName='Helvetica-Bold',
-    fontSize=11,
-    leading=13,
-    alignment=1,
-    textColor=colors.black
+    fontSize=13,
+    leading=15,
+    alignment=1,        # Center
+    textColor=colors.darkblue,
+    backColor=colors.lightgrey
 )
 
 def generate_bingo_card(songs: list) -> list:
-    """Generate one 5x5 bingo card with Paragraph objects for wrapping"""
+    """Generate one 5x5 bingo card"""
     pool = songs[:]
     random.shuffle(pool)
     items = pool[:24]
@@ -67,7 +67,8 @@ def generate_bingo_card(songs: list) -> list:
         row = []
         for j in range(5):
             if i == 2 and j == 2:
-                row.append(Paragraph("🎵 FREE 🎵", free_style))
+                # Clean and bold FREE space (no problematic emojis)
+                row.append(Paragraph("<b>FREE</b><br/>SPACE", free_style))
             else:
                 row.append(Paragraph(items[idx], song_style))
                 idx += 1
@@ -76,7 +77,7 @@ def generate_bingo_card(songs: list) -> list:
 
 
 def generate_bingo_pdf(songs: list, num_cards: int, bingo_title: str) -> bytes:
-    """Generate printable A4 PDF with text wrapping"""
+    """Generate printable A4 PDF"""
     buffer = BytesIO()
     c = canvas.Canvas(buffer, pagesize=A4)
     width, height = A4
@@ -108,7 +109,7 @@ def generate_bingo_pdf(songs: list, num_cards: int, bingo_title: str) -> bytes:
                 c.drawCentredString(x + card_width/2, y + card_height - 18*mm, 
                                   f"Card #{cards_generated + 1}")
 
-                # Bingo Table with wrapped text
+                # Table
                 t = Table(card_data, 
                          colWidths=[card_width/5.05]*5, 
                          rowHeights=[card_height/5.75]*5)
@@ -154,7 +155,7 @@ if uploaded_file is not None:
             st.info(f"🎯 **{len(songs)} songs** loaded")
 
             if st.button("🚀 Generate Printable PDF", type="primary", use_container_width=True):
-                with st.spinner(f"Generating {num_cards} bingo cards with wrapped text..."):
+                with st.spinner(f"Generating {num_cards} bingo cards..."):
                     pdf_bytes = generate_bingo_pdf(songs, num_cards, bingo_title)
 
                 st.success(f"✅ {num_cards} Music Bingo cards generated!")
@@ -167,15 +168,12 @@ if uploaded_file is not None:
                     use_container_width=True
                 )
 
-                st.caption("Print at 100% scale. Long song titles will now wrap automatically.")
-
     except Exception as e:
         st.error(f"Error reading Excel: {e}")
 
-# Sample Preview (still uses simple text for preview)
+# Sample Preview
 if 'songs' in locals() and songs and st.checkbox("Show sample bingo card preview"):
-    st.subheader("Sample Card Preview (text may not wrap here)")
+    st.subheader("Sample Card Preview")
     sample = generate_bingo_card(songs)
-    # Convert Paragraph back to text for nice table display in Streamlit
     simple_sample = [[p.text if hasattr(p, 'text') else str(p) for p in row] for row in sample]
     st.table(simple_sample)
