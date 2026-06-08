@@ -102,8 +102,8 @@ def generate_bingo_pdf(songs_list, num_cards, bingo_title):
 
                 card_data = generate_bingo_card(songs_list)
 
-                c.setFont("Helvetica-Bold", 16)
-                c.drawCentredString(x + card_width/2, y + card_height - 12*mm, bingo_title)
+                c.setFont("Helvetica-Bold", 14)
+                c.drawCentredString(x + card_width/2, y + card_height - 3*mm, bingo_title)
                 c.setFont("Helvetica", 11)
                 c.drawCentredString(x + card_width/2, y + card_height - 18*mm, f"Card #{cards_generated + 1}")
 
