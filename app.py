@@ -16,7 +16,7 @@ st.title("🎵 Music Bingo Card Generator")
 
 bingo_title = st.text_input("Enter Bingo Title", value="Battledress 1 May Bingo")
 
-# Song Input
+# ====================== SONG INPUT ======================
 st.subheader("Add Your Songs")
 input_method = st.radio("How do you want to add songs?", 
                        ["Upload Excel File", "Paste Songs Manually"], horizontal=True)
@@ -40,28 +40,26 @@ else:
 st.sidebar.header("Settings")
 num_cards = st.sidebar.slider("Number of boards", 50, 100, 75, 5)
 
-# ==================== BETTER STYLE FOR SONG TITLES ====================
+# ====================== STYLES ======================
 styles = getSampleStyleSheet()
 
 song_style = ParagraphStyle(
     'SongStyle',
     parent=styles['Normal'],
     fontName='Helvetica',
-    fontSize=8.2,                    # Smaller but readable
-    leading=10,
-    alignment=1,                     # Center
+    fontSize=10.2,
+    leading=12.2,
+    alignment=1,               # Center
     wordWrap='CJK',
-    splitLongWords=False,            # ← Important change
-    hyphenationLang=None,            # Disable auto hyphenation
-    spaceShrinkage=0.08,
+    splitLongWords=False,      # Avoid ugly breaks
 )
 
 free_style = ParagraphStyle(
     'FreeStyle',
     parent=styles['Normal'],
     fontName='Helvetica-Bold',
-    fontSize=11,
-    leading=13,
+    fontSize=14,
+    leading=16,
     alignment=1,
     textColor=colors.darkblue
 )
@@ -88,41 +86,48 @@ def generate_bingo_pdf(songs_list, num_cards, bingo_title):
     c = canvas.Canvas(buffer, pagesize=A4)
     width, height = A4
 
-    card_width = (width - 40 * mm) / 2
-    card_height = (height - 68 * mm) / 2
+    # 2 cards per page (larger cells)
+    card_width = width - 35*mm
+    card_height = (height - 70*mm) / 2
 
     cards_generated = 0
+
     while cards_generated < num_cards:
-        for r in range(2):
-            for col in range(2):
-                if cards_generated >= num_cards:
-                    break
-                x = 20*mm + col * (card_width + 12*mm)
-                y = height - 25*mm - (r + 1) * (card_height + 15*mm)
+        for pos in range(2):
+            if cards_generated >= num_cards:
+                break
 
-                card_data = generate_bingo_card(songs_list)
+            y = height - 28*mm - pos * (card_height + 32*mm)
+            x = 17.5*mm
 
-                c.setFont("Helvetica-Bold", 14)
-                c.drawCentredString(x + card_width/2, y + card_height - 2*mm, bingo_title)
-                c.setFont("Helvetica", 11)
-                c.drawCentredString(x + card_width/2, y + card_height - 120*mm, f"Card #{cards_generated + 1}")
+            card_data = generate_bingo_card(songs_list)
 
-                t = Table(card_data, 
-                         colWidths=[card_width/5.05]*5, 
-                         rowHeights=[card_height/5.55]*5)
+            # Title
+            c.setFont("Helvetica-Bold", 17)
+            c.drawCentredString(x + card_width/2, y + card_height - 9*mm, bingo_title)
 
-                t.setStyle(TableStyle([
-                    ('GRID', (0,0), (-1,-1), 1.5, colors.black),
-                    ('BACKGROUND', (0,0), (-1,-1), colors.white),
-                    ('ALIGN', (0,0), (-1,-1), 'CENTER'),
-                    ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-                    ('BACKGROUND', (2,2), (2,2), colors.lightgrey),
-                ]))
-                t.wrapOn(c, card_width, card_height)
-                t.drawOn(c, x, y + 4*mm)
+            # Card Number
+            c.setFont("Helvetica", 11)
+            c.drawCentredString(x + card_width/2, y + card_height - 21*mm, f"Card #{cards_generated + 1}")
 
-                cards_generated += 1
-            if cards_generated >= num_cards: break
+            # Grid
+            t = Table(card_data, 
+                     colWidths=[card_width/5.08]*5, 
+                     rowHeights=[card_height/5.6]*5)
+
+            t.setStyle(TableStyle([
+                ('GRID', (0,0), (-1,-1), 2, colors.black),
+                ('BACKGROUND', (0,0), (-1,-1), colors.white),
+                ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+                ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+                ('BACKGROUND', (2,2), (2,2), colors.lightgrey),
+            ]))
+
+            t.wrapOn(c, card_width, card_height)
+            t.drawOn(c, x, y + 14*mm)
+
+            cards_generated += 1
+
         if cards_generated < num_cards:
             c.showPage()
 
@@ -130,13 +135,13 @@ def generate_bingo_pdf(songs_list, num_cards, bingo_title):
     buffer.seek(0)
     return buffer.getvalue()
 
-# Generate Button
+# ====================== GENERATE ======================
 if len(songs) >= 20:
     if st.button("🚀 Generate Printable PDF", type="primary", use_container_width=True):
-        with st.spinner("Generating cards with improved text fitting..."):
+        with st.spinner("Generating 2 large cards per page..."):
             pdf_bytes = generate_bingo_pdf(songs, num_cards, bingo_title)
-        st.success("✅ Done!")
-        st.download_button("📥 Download PDF", pdf_bytes, 
+        st.success("✅ Generated successfully!")
+        st.download_button("📥 Download A4 PDF (2 cards per page)", pdf_bytes, 
                           f"music_bingo_{num_cards}_cards.pdf", 
                           "application/pdf", use_container_width=True)
 else:
