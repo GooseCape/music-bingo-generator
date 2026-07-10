@@ -116,6 +116,15 @@ if is_music_mode:
 st.sidebar.header("Settings")
 num_cards = st.sidebar.slider("Number of boards", 50, 100, 75, 5)
 
+layout_choice = st.sidebar.radio(
+    "Boards per A4 page",
+    ["4 per page (2x2, compact)", "2 per page (larger, easier to read)"],
+    horizontal=False,
+)
+boards_per_page = 4 if layout_choice.startswith("4") else 2
+rows_per_page = 2
+cols_per_page = 2 if boards_per_page == 4 else 1
+
 if is_music_mode:
     use_free_space = st.sidebar.checkbox("Include FREE center space", value=True)
 else:
@@ -165,22 +174,37 @@ def generate_number_bingo_card(use_free=True):
 
 
 # ==================== PDF GENERATION ====================
-def generate_bingo_pdf(num_cards, bingo_title, is_music, songs_list=None, use_free=True, show_header=True):
+def generate_bingo_pdf(
+    num_cards,
+    bingo_title,
+    is_music,
+    songs_list=None,
+    use_free=True,
+    show_header=True,
+    rows_per_page=2,
+    cols_per_page=2,
+):
     buffer = BytesIO()
     c = canvas.Canvas(buffer, pagesize=A4)
     width, height = A4
 
-    card_width = (width - 40 * mm) / 2
-    card_height = (height - 68 * mm) / 2
+    side_margin = 20 * mm
+    col_gap = 12 * mm
+    top_margin = 25 * mm
+    bottom_margin = 25 * mm
+    row_gap = 15 * mm
+
+    card_width = (width - 2 * side_margin - (cols_per_page - 1) * col_gap) / cols_per_page
+    card_height = (height - top_margin - bottom_margin - (rows_per_page - 1) * row_gap) / rows_per_page
 
     cards_generated = 0
     while cards_generated < num_cards:
-        for r in range(2):
-            for col in range(2):
+        for r in range(rows_per_page):
+            for col in range(cols_per_page):
                 if cards_generated >= num_cards:
                     break
-                x = 20 * mm + col * (card_width + 12 * mm)
-                y = height - 25 * mm - (r + 1) * (card_height + 15 * mm)
+                x = side_margin + col * (card_width + col_gap)
+                y = height - top_margin - (r + 1) * (card_height + row_gap) + row_gap
 
                 if is_music:
                     card_data = generate_music_bingo_card(songs_list, use_free=use_free)
@@ -190,7 +214,7 @@ def generate_bingo_pdf(num_cards, bingo_title, is_music, songs_list=None, use_fr
                 c.setFont("Helvetica-Bold", 14)
                 c.drawCentredString(x + card_width / 2, y + card_height - 2 * mm, bingo_title)
                 c.setFont("Helvetica", 11)
-                c.drawCentredString(x + card_width / 2, y + card_height - 120 * mm, f"Card #{cards_generated + 1}")
+                c.drawCentredString(x + card_width / 2, y - 6 * mm, f"Card #{cards_generated + 1}")
 
                 table_rows = card_data
                 row_heights = [card_height / 5.55] * 5
@@ -252,6 +276,8 @@ if ready_to_generate:
                 songs_list=songs if is_music_mode else None,
                 use_free=use_free_space,
                 show_header=show_bingo_header if not is_music_mode else False,
+                rows_per_page=rows_per_page,
+                cols_per_page=cols_per_page,
             )
         st.success("✅ Done!")
         file_prefix = "music_bingo" if is_music_mode else "number_bingo"
