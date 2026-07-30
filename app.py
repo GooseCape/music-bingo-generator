@@ -30,49 +30,60 @@ bingo_title = st.text_input(
 )
 
 # ==================== STYLES ====================
-styles = getSampleStyleSheet()
+base_styles = getSampleStyleSheet()
 
-song_style = ParagraphStyle(
-    'SongStyle',
-    parent=styles['Normal'],
-    fontName='Helvetica',
-    fontSize=8.2,                    # Smaller but readable
-    leading=10,
-    alignment=1,                     # Center
-    wordWrap='CJK',
-    splitLongWords=False,
-    hyphenationLang=None,
-    spaceShrinkage=0.08,
-)
 
-number_style = ParagraphStyle(
-    'NumberStyle',
-    parent=styles['Normal'],
-    fontName='Helvetica-Bold',
-    fontSize=16,
-    leading=18,
-    alignment=1,
-)
+def build_styles(scale=1.0):
+    """Build Paragraph styles, scaled up for larger board layouts (e.g. 2-per-page)."""
+    song_style = ParagraphStyle(
+        'SongStyle',
+        parent=base_styles['Normal'],
+        fontName='Helvetica',
+        fontSize=8.2 * scale,
+        leading=10 * scale,
+        alignment=1,                     # Center
+        wordWrap='CJK',
+        splitLongWords=False,
+        hyphenationLang=None,
+        spaceShrinkage=0.08,
+    )
 
-free_style = ParagraphStyle(
-    'FreeStyle',
-    parent=styles['Normal'],
-    fontName='Helvetica-Bold',
-    fontSize=11,
-    leading=13,
-    alignment=1,
-    textColor=colors.darkblue
-)
+    number_style = ParagraphStyle(
+        'NumberStyle',
+        parent=base_styles['Normal'],
+        fontName='Helvetica-Bold',
+        fontSize=16 * scale,
+        leading=18 * scale,
+        alignment=1,
+    )
 
-header_style = ParagraphStyle(
-    'HeaderStyle',
-    parent=styles['Normal'],
-    fontName='Helvetica-Bold',
-    fontSize=16,
-    leading=18,
-    alignment=1,
-    textColor=colors.white,
-)
+    free_style = ParagraphStyle(
+        'FreeStyle',
+        parent=base_styles['Normal'],
+        fontName='Helvetica-Bold',
+        fontSize=11 * scale,
+        leading=13 * scale,
+        alignment=1,
+        textColor=colors.darkblue
+    )
+
+    header_style = ParagraphStyle(
+        'HeaderStyle',
+        parent=base_styles['Normal'],
+        fontName='Helvetica-Bold',
+        fontSize=16 * scale,
+        leading=18 * scale,
+        alignment=1,
+        textColor=colors.white,
+    )
+
+    return {
+        "song": song_style,
+        "number": number_style,
+        "free": free_style,
+        "header": header_style,
+    }
+
 
 # Standard 75-ball bingo column ranges
 BINGO_LETTERS = ["B", "I", "N", "G", "O"]
@@ -132,11 +143,17 @@ else:
     show_bingo_header = st.sidebar.checkbox("Show B-I-N-G-O header row", value=True)
 
 # ==================== CARD GENERATION ====================
-def generate_music_bingo_card(songs_list, use_free=True):
+def generate_music_bingo_card(songs_list, use_free=True, styles=None):
+    styles = styles or build_styles(1.0)
     pool = songs_list[:]
     random.shuffle(pool)
     center_index = 12  # middle of 5x5 grid
     needed = 24 if use_free else 25
+    if len(pool) < needed:
+        raise ValueError(
+            f"Not enough songs to fill a board: need at least {needed}, "
+            f"but only {len(pool)} were provided."
+        )
     items = pool[:needed]
     card = []
     idx = 0
@@ -145,16 +162,17 @@ def generate_music_bingo_card(songs_list, use_free=True):
         for j in range(5):
             flat_pos = i * 5 + j
             if use_free and flat_pos == center_index:
-                row.append(Paragraph("<b>FREE</b>", free_style))
+                row.append(Paragraph("<b>FREE</b>", styles["free"]))
             else:
-                row.append(Paragraph(items[idx], song_style))
+                row.append(Paragraph(items[idx], styles["song"]))
                 idx += 1
         card.append(row)
     return card
 
 
-def generate_number_bingo_card(use_free=True):
+def generate_number_bingo_card(use_free=True, styles=None):
     """Generates a standard 75-ball bingo card: 5 unique numbers per B-I-N-G-O column."""
+    styles = styles or build_styles(1.0)
     columns = {}
     for letter in BINGO_LETTERS:
         low, high = BINGO_RANGES[letter]
@@ -165,10 +183,10 @@ def generate_number_bingo_card(use_free=True):
         row = []
         for col_idx, letter in enumerate(BINGO_LETTERS):
             if use_free and row_idx == 2 and col_idx == 2:
-                row.append(Paragraph("<b>FREE</b>", free_style))
+                row.append(Paragraph("<b>FREE</b>", styles["free"]))
             else:
                 value = columns[letter][row_idx]
-                row.append(Paragraph(str(value), number_style))
+                row.append(Paragraph(str(value), styles["number"]))
         card.append(row)
     return card
 
@@ -197,6 +215,13 @@ def generate_bingo_pdf(
     card_width = (width - 2 * side_margin - (cols_per_page - 1) * col_gap) / cols_per_page
     card_height = (height - top_margin - bottom_margin - (rows_per_page - 1) * row_gap) / rows_per_page
 
+    # Boards get noticeably bigger with fewer per page, so scale text up to match.
+    # 1 column per page (2-per-page layout) -> wider cards -> bigger font.
+    font_scale = 1.4 if cols_per_page == 1 else 1.0
+    card_styles = build_styles(font_scale)
+    title_font_size = 14 * font_scale
+    label_font_size = 11 * font_scale
+
     cards_generated = 0
     while cards_generated < num_cards:
         for r in range(rows_per_page):
@@ -207,20 +232,20 @@ def generate_bingo_pdf(
                 y = height - top_margin - (r + 1) * (card_height + row_gap) + row_gap
 
                 if is_music:
-                    card_data = generate_music_bingo_card(songs_list, use_free=use_free)
+                    card_data = generate_music_bingo_card(songs_list, use_free=use_free, styles=card_styles)
                 else:
-                    card_data = generate_number_bingo_card(use_free=use_free)
+                    card_data = generate_number_bingo_card(use_free=use_free, styles=card_styles)
 
-                c.setFont("Helvetica-Bold", 14)
+                c.setFont("Helvetica-Bold", title_font_size)
                 c.drawCentredString(x + card_width / 2, y + card_height - 2 * mm, bingo_title)
-                c.setFont("Helvetica", 11)
+                c.setFont("Helvetica", label_font_size)
                 c.drawCentredString(x + card_width / 2, y - 6 * mm, f"Card #{cards_generated + 1}")
 
                 table_rows = card_data
                 row_heights = [card_height / 5.55] * 5
 
                 if (not is_music) and show_header:
-                    header_row = [Paragraph(f"<b>{letter}</b>", header_style) for letter in BINGO_LETTERS]
+                    header_row = [Paragraph(f"<b>{letter}</b>", card_styles["header"]) for letter in BINGO_LETTERS]
                     table_rows = [header_row] + card_data
                     row_heights = [card_height / 8] + [card_height / 5.55] * 5
 
@@ -261,33 +286,40 @@ def generate_bingo_pdf(
 
 
 # ==================== GENERATE BUTTON ====================
-ready_to_generate = (not is_music_mode) or (is_music_mode and len(songs) >= 20)
+required_songs = (24 if use_free_space else 25) if is_music_mode else 0
+ready_to_generate = (not is_music_mode) or (is_music_mode and len(songs) >= required_songs)
 
-if is_music_mode and len(songs) < 20:
-    st.info("Please add at least 20 songs")
+if is_music_mode and len(songs) < required_songs:
+    space_note = "24 (with a FREE center space)" if use_free_space else "25 (no FREE space)"
+    st.info(f"Please add at least {space_note} songs — a 5x5 board needs that many to fill every cell.")
 
 if ready_to_generate:
     if st.button("🚀 Generate Printable PDF", type="primary", use_container_width=True):
         with st.spinner("Generating cards..."):
-            pdf_bytes = generate_bingo_pdf(
-                num_cards,
-                bingo_title,
-                is_music_mode,
-                songs_list=songs if is_music_mode else None,
-                use_free=use_free_space,
-                show_header=show_bingo_header if not is_music_mode else False,
-                rows_per_page=rows_per_page,
-                cols_per_page=cols_per_page,
+            try:
+                pdf_bytes = generate_bingo_pdf(
+                    num_cards,
+                    bingo_title,
+                    is_music_mode,
+                    songs_list=songs if is_music_mode else None,
+                    use_free=use_free_space,
+                    show_header=show_bingo_header if not is_music_mode else False,
+                    rows_per_page=rows_per_page,
+                    cols_per_page=cols_per_page,
+                )
+            except ValueError as e:
+                st.error(f"⚠️ {e}")
+                pdf_bytes = None
+        if pdf_bytes:
+            st.success("✅ Done!")
+            file_prefix = "music_bingo" if is_music_mode else "number_bingo"
+            st.download_button(
+                "📥 Download PDF",
+                pdf_bytes,
+                f"{file_prefix}_{num_cards}_cards.pdf",
+                "application/pdf",
+                use_container_width=True,
             )
-        st.success("✅ Done!")
-        file_prefix = "music_bingo" if is_music_mode else "number_bingo"
-        st.download_button(
-            "📥 Download PDF",
-            pdf_bytes,
-            f"{file_prefix}_{num_cards}_cards.pdf",
-            "application/pdf",
-            use_container_width=True,
-        )
 
 # ==================== PREVIEW ====================
 show_preview = False
